@@ -72,7 +72,7 @@ powershell -ExecutionPolicy Bypass -File .\deploy.ps1 -Mirror cn
 | `-Mirror auto\|global\|cn` | 模型下载源。`auto` 先官方、失败自动切 hf-mirror；`cn` 优先镜像 |
 | `-Only lib,models` | 只部署指定组件：`lib` `ffmpeg` `ollama` `whisper` `models` `llm` `build` |
 | `-Skip ffmpeg,llm` | 跳过指定组件 |
-| `-SkipLlm` | 不装内置翻译模型（省 1.3 GB，只影响"内嵌引擎"档） |
+| `-SkipLlm` | 不装内置翻译模型（省 1.9 GB，只影响"内嵌引擎"档） |
 | `-SmallModel` | 用 `ggml-small` 代替 `ggml-medium`（省 1 GB，精度略降） |
 | `-GgufPath D:\x.gguf` | 用本地 GGUF 建内置模型，不下载基座 |
 | `-NoBuild` | 只下依赖，不编译 |
@@ -132,6 +132,17 @@ powershell -ExecutionPolicy Bypass -File .\gui\build.ps1
 - FFmpeg 使用 **GPL v3** 构建，再分发本程序 + FFmpeg 时需遵守 GPL 义务
 - whisper.cpp 官方 Release **没有 Windows Vulkan 预编译包**，本仓库把自编译结果作为
   Release 附件分发；取不到时自动回退官方 CPU 构建（`tools/README.md` 有自编译步骤）
+
+## 内置翻译模型
+
+内置引擎用的是 [kaelri/qwen3.5-mt:2b](https://ollama.com/kaelri/qwen3.5-mt) 的原始权重：
+Qwen3.5 2B 的翻译专用微调版，Q4_K_M，1.9 GB，Apache 2.0。
+
+`deploy.ps1` 直接从 ollama 注册表取这个 GGUF 层（`sha256:4ecac2ba…`），核对摘要后再按
+`modelfile/` 里的模板重建 `qwen3.5-mt:2b`。取到的权重与作者发布版**逐字节一致**，因此部署
+结果和原作者环境下的翻译表现相同；若从 HuggingFace 回退，脚本会明确提示"这是通用基座"。
+
+该模型经 abliteration 移除了拒答，会逐字翻译、不回避内容，输出请自行复核。
 
 ## 常见问题
 

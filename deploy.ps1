@@ -30,7 +30,7 @@ param(
     # 跳过这些组件
     [string[]]$Skip = @(),
 
-    # 跳过内置 LLM 模型(省 1.3 GB, 只影响"内嵌引擎"这一档)
+    # 跳过内置 LLM 模型(省 1.9 GB, 只影响"内嵌引擎"这一档)
     [switch]$SkipLlm,
 
     # 用 ggml-small 代替 ggml-medium (省 1 GB, 识别精度略降)
@@ -70,6 +70,13 @@ $VerMemory    = '4.5.5'
 $VerUnsafe    = '4.5.3'
 $VerGguf      = 'Qwen3.5-2B-Q4_K_M.gguf'
 
+# 内置翻译模型: ollama 官方注册表 kaelri/qwen3.5-mt:2b 的同一份 GGUF
+# (blob 摘要 = 文件 sha256, 与作者发布的模型逐字节一致)
+$MtgRepo      = 'kaelri/qwen3.5-mt'
+$MtgDigest    = '4ecac2ba3fd000cf4638ce65dbffacbd8062c2c87a24a75559af421341adb4b2'
+$MtgSize      = 1945311744
+$VerMtgGuf    = 'Qwen3.5-MT-2B-Q4_K_M.gguf'
+
 $StepTotal = 0
 $StepIndex = 0
 
@@ -96,6 +103,39 @@ function Write-Ok   { param([string]$Text) Write-Host "  [OK]   $Text" -Foregrou
 function Write-Skip { param([string]$Text) Write-Host "  [跳过] $Text" -ForegroundColor DarkGray }
 function Write-Note { param([string]$Text) Write-Host "  [提示] $Text" -ForegroundColor Yellow }
 function Write-Fail { param([string]$Text) Write-Host "  [失败] $Text" -ForegroundColor Red }
+
+# ==================================================================
+#  端口 / 本地服务探测
+# ==================================================================
+function Test-PortOpen {
+    param([int]$Port)
+    $c = New-Object Net.Sockets.TcpClient
+    try {
+        $iar = $c.BeginConnect('127.0.0.1', $Port, $null, $null)
+        if (-not $iar.AsyncWaitHandle.WaitOne(300)) { return $false }
+        $c.EndConnect($iar)
+        return $true
+    } catch {
+        return $false
+    } finally {
+        $c.Close()
+    }
+}
+
+function Test-OllamaReady {
+    param([int]$Port)
+    try {
+        $req = [Net.HttpWebRequest]::Create(('http://127.0.0.1:{0}/api/tags' -f $Port))
+        $req.Proxy = $null          # 本地回环不走系统代理
+        $req.Timeout = 3000
+        $resp = $req.GetResponse()
+        $code = [int]$resp.StatusCode
+        $resp.Close()
+        return ($code -eq 200)
+    } catch {
+        return $false
+    }
+}
 
 # ==================================================================
 #  下载(.NET 实现: 断点续传 + 进度)
@@ -242,6 +282,49 @@ function Get-Download {
     Write-Fail ("$name 所有来源均失败")
     foreach ($e in $errors) { Write-Host "        $e" -ForegroundColor DarkRed }
     throw "下载 $name 失败"
+}
+
+function Get-DownloadHash {
+    <#
+      下载并校验 sha256。用于权重这种"来源多、必须字节一致"的文件:
+      逐源尝试, 每下完一个就比对摘要, 不符就换下一个源, 全部失败才抛错。
+    #>
+    param(
+        [string[]]$Urls,
+        [string]$Dest,
+        [string]$Sha256,
+        [long]$Size,
+        [string]$Desc = ''
+    )
+    $Sha256 = $Sha256.ToLower()
+    $name   = Split-Path $Dest -Leaf
+
+    if (-not $Force -and (Test-Path $Dest) -and (Get-Item $Dest).Length -eq $Size) {
+        $h = (Get-FileHash -Path $Dest -Algorithm SHA256).Hash.ToLower()
+        if ($h -eq $Sha256) {
+            Write-Skip ('{0} 已就位 (sha256 校验通过)' -f $name)
+            return $true
+        }
+        Write-Note ('{0} 摘要不符, 重新下载' -f $name)
+        Remove-Item $Dest -Force -ErrorAction SilentlyContinue
+    }
+
+    foreach ($u in $Urls) {
+        try {
+            Get-Download -Urls @($u) -Dest $Dest -MinBytes $Size -Desc $Desc | Out-Null
+        } catch {
+            continue
+        }
+        Write-Host '  校验 sha256…' -ForegroundColor Gray
+        $h = (Get-FileHash -Path $Dest -Algorithm SHA256).Hash.ToLower()
+        if ($h -eq $Sha256) {
+            Write-Ok ('{0} sha256 校验通过 ({1})' -f $name, (Format-Size (Get-Item $Dest).Length))
+            return $true
+        }
+        Write-Note ('来源内容不符 (期望 {0}…, 实得 {1}…), 换下一个源' -f $Sha256.Substring(0, 12), $h.Substring(0, 12))
+        Remove-Item $Dest -Force -ErrorAction SilentlyContinue
+    }
+    throw ('{0} 所有来源均未通过 sha256 校验' -f $name)
 }
 
 # ==================================================================
@@ -537,39 +620,115 @@ function Deploy-Llm {
         $gguf = (Resolve-Path $gguf).Path
         Write-Ok ('使用本地 GGUF: ' + $gguf)
     } else {
-        $hf = Get-HfBaseList
-        $urls = @()
-        foreach ($b in $hf) {
-            $urls += ('{0}/unsloth/Qwen3.5-2B-GGUF/resolve/main/{1}' -f $b, $VerGguf)
-            $urls += ('{0}/prithivMLmods/Qwen3.5-2B-MTP-GGUF/resolve/main/Qwen3.5-2B.Q4_K_M.gguf' -f $b)
-        }
+        # 首选: ollama 官方注册表里 kaelri/qwen3.5-mt:2b 的 GGUF 层
+        # 这一层就是作者发布的权重本身, sha256 与程序内置模型逐字节一致
         $ggufDir = Join-Path $Script:Cache 'gguf'
-        $gguf = Join-Path $ggufDir $VerGguf
-        Get-Download -Urls $urls -Dest $gguf -MinBytes 1000000000 -Desc 'Qwen3.5-2B Q4_K_M 基座 (~1.3 GB)' | Out-Null
+        $gguf    = Join-Path $ggufDir $VerMtgGuf
+        $fromOfficial = $true
+        try {
+            Get-DownloadHash `
+                -Urls @(('https://registry.ollama.ai/v2/{0}/blobs/sha256:{1}' -f $MtgRepo, $MtgDigest)) `
+                -Dest $gguf -Sha256 $MtgDigest -Size $MtgSize `
+                -Desc ('Qwen3.5-MT-2B Q4_K_M 官方权重 (~1.9 GB)') | Out-Null
+        } catch {
+            $fromOfficial = $false
+            Write-Note '官方注册表取不到, 回退到 HuggingFace 通用基座'
+        }
+
+        if (-not $fromOfficial) {
+            # 兜底: 通用 Qwen3.5-2B (非翻译微调版), 配合仓库内模板仍可翻译, 但效果不等同作者版
+            $gguf = Join-Path $ggufDir $VerGguf
+            $hf = Get-HfBaseList
+            $urls = @()
+            foreach ($b in $hf) {
+                $urls += ('{0}/unsloth/Qwen3.5-2B-GGUF/resolve/main/{1}' -f $b, $VerGguf)
+                $urls += ('{0}/prithivMLmods/Qwen3.5-2B-MTP-GGUF/resolve/main/Qwen3.5-2B.Q4_K_M.gguf' -f $b)
+            }
+            Get-Download -Urls $urls -Dest $gguf -MinBytes 1000000000 -Desc 'Qwen3.5-2B Q4_K_M 通用基座 (~1.3 GB)' | Out-Null
+            Write-Note '当前为通用基座, 如需与作者一致的翻译质量请改用官方权重'
+        }
     }
 
     # 用仓库里的 Modelfile 模板, 把 FROM 换成本地 gguf
     $mfSrc = Join-Path $Script:Root 'modelfile\qwen3.5-mt-2b.Modelfile'
     if (-not (Test-Path $mfSrc)) { throw "缺少 modelfile\qwen3.5-mt-2b.Modelfile" }
-    $lines = Get-Content -Path $mfSrc -Encoding UTF8 | Where-Object { $_.Trim() -ne '' -and -not $_.TrimStart().StartsWith('#') }
+    $lines = New-Object System.Collections.Generic.List[string]
+    foreach ($l in (Get-Content -Path $mfSrc -Encoding UTF8)) {
+        if ($l.TrimStart().StartsWith('#')) { continue }           # 注释不参与构建
+        if ($lines.Count -eq 0 -and $l.Trim() -eq '') { continue }  # 跳过文件头部空行
+        $lines.Add($l)                                              # 块内空行必须保留
+    }
+    while ($lines.Count -gt 1 -and $lines[$lines.Count - 1].Trim() -eq '') { $lines.RemoveAt($lines.Count - 1) }
     $lines[0] = ('FROM "{0}"' -f ($gguf -replace '\\', '/'))
     $tmpMf = Join-Path $Script:Cache 'qwen3.5-mt-2b.build.Modelfile'
     if (-not (Test-Path $Script:Cache)) { New-Item -ItemType Directory -Path $Script:Cache -Force | Out-Null }
-    [IO.File]::WriteAllLines($tmpMf, $lines, (New-Object Text.UTF8Encoding $false))
+    # 必须用 LF: 模板/系统提示的原版 blob 就是 LF, 用 CRLF 会生成不同摘要(内容等价但不再逐字节一致)
+    [IO.File]::WriteAllText($tmpMf, (($lines -join "`n") + "`n"), (New-Object Text.UTF8Encoding $false))
 
     if (-not (Test-Path $modelsDir)) { New-Item -ItemType Directory -Path $modelsDir -Force | Out-Null }
     Write-Host '  构建模型(需要 1-3 分钟, 期间无输出属正常)…' -ForegroundColor Gray
+
+    # 用一个独立端口的临时 ollama 服务来构建:
+    # 若本机已装 Ollama 且在运行(常见), 直接调 CLI 会把模型建到它的模型库里, 而不是项目的 models\ollama
     $oldModels = $env:OLLAMA_MODELS
+    $oldHost   = $env:OLLAMA_HOST
+    $port = 11500
+    while (Test-PortOpen $port) { $port++ }
     $env:OLLAMA_MODELS = $modelsDir
+    $env:OLLAMA_HOST   = ('127.0.0.1:{0}' -f $port)
+
+    $pidSrv = 0
     try {
-        & $ollamaExe create 'qwen3.5-mt:2b' -f $tmpMf
+        # 不要用 Start-Process: PowerShell 5.1 在"环境变量仅大小写重复"(如同时存在
+        # HTTPS_PROXY 与 https_proxy)时会抛"已添加项", 且 -UseNewEnvironment 也绕不过。
+        # 走 WMI 创建进程, 环境变量在 cmd 里现设, 顺带把输出重定向到日志。
+        $log = Join-Path $Script:Cache 'ollama-serve.log'
+        $cmdLine = ('cmd /c set "OLLAMA_MODELS={0}" && set "OLLAMA_HOST=127.0.0.1:{1}" && "{2}" serve > "{3}" 2>&1' -f `
+                    $modelsDir, $port, $ollamaExe, $log)
+        $pidSrv = 0
+        try {
+            $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $cmdLine } -ErrorAction Stop
+            if ($r -and $r.ReturnValue -eq 0) { $pidSrv = [int]$r.ProcessId }
+        } catch {
+            $pidSrv = 0
+        }
+
+        $ready = $false
+        if ($pidSrv -gt 0) {
+            for ($i = 0; $i -lt 60; $i++) {
+                Start-Sleep -Milliseconds 500
+                if (Test-OllamaReady $port) { $ready = $true; break }
+                if (-not (Get-Process -Id $pidSrv -ErrorAction SilentlyContinue)) { break }
+            }
+        }
+
+        if ($ready) {
+            & $ollamaExe create 'qwen3.5-mt:2b' -f $tmpMf
+        } else {
+            # 临时服务起不来(权限/端口/WMI 限制), 退回直接调 CLI
+            Write-Note '临时服务未就绪, 改用本机 Ollama CLI 构建'
+            & $ollamaExe create 'qwen3.5-mt:2b' -f $tmpMf
+        }
         if ($LASTEXITCODE -ne 0) { throw ("ollama create 失败 (退出码 $LASTEXITCODE)") }
     } finally {
+        if ($pidSrv -gt 0) {
+            # 只关本次启动的 ollama serve(连同它的 cmd 父进程)
+            Get-CimInstance Win32_Process -Filter ("ParentProcessId={0}" -f $pidSrv) -ErrorAction SilentlyContinue |
+                ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+            Stop-Process -Id $pidSrv -Force -ErrorAction SilentlyContinue
+        }
         $env:OLLAMA_MODELS = $oldModels
+        $env:OLLAMA_HOST   = $oldHost
+    }
+
+    if (-not (Test-Path $manifest)) {
+        throw ('模型没有写进 models\ollama：本机很可能有另一个 Ollama 在运行(托盘程序/ollama serve)，' +
+               'create 请求被它接走了。请退出 Ollama 后重跑本脚本，或手动执行：' +
+               '$env:OLLAMA_MODELS="<项目>\models\ollama"; .\tools\ollama\ollama.exe create qwen3.5-mt:2b -f .\modelfile\qwen3.5-mt-2b.Modelfile')
     }
     Write-Ok 'qwen3.5-mt:2b 已写入 models\ollama'
 
-    # 基座已进 blobs, 删掉临时 gguf 省 1.3 GB
+    # 权重已进 blobs, 删掉临时 gguf 省 1.9 GB
     if ($GgufPath -eq '' -and (Test-Path $gguf)) {
         Remove-Item $gguf -Force -ErrorAction SilentlyContinue
         Write-Note '临时 GGUF 已清理(模型已复制进 models\ollama\blobs)'

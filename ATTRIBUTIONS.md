@@ -10,7 +10,8 @@
 | Whisper 模型 | `ggml-medium.bin` / `ggml-small.bin` | [ggerganov/whisper.cpp](https://huggingface.co/ggerganov/whisper.cpp) | MIT（OpenAI Whisper 权重） |
 | Silero VAD | 语音活动检测 `ggml-silero-v6.2.0.bin` | [ggml-org/whisper-vad](https://huggingface.co/ggml-org/whisper-vad) | MIT |
 | Ollama | 内置 LLM 推理引擎 | [ollama/ollama](https://github.com/ollama/ollama) v0.35.1 | MIT |
-| Qwen3.5-2B GGUF | 内置翻译模型基座 | [unsloth/Qwen3.5-2B-GGUF](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) | Apache 2.0 |
+| Qwen3.5-MT-2B GGUF | 内置翻译模型权重（Q4_K_M 1.9 GB，由 [kaelri/qwen3.5-mt](https://ollama.com/kaelri/qwen3.5-mt) 注册表取得，`sha256:4ecac2ba…`） | [ollama.com/kaelri/qwen3.5-mt](https://ollama.com/kaelri/qwen3.5-mt) | Apache 2.0 |
+| Qwen3.5-2B GGUF（回退） | 官方权重取不到时的通用基座 | [unsloth/Qwen3.5-2B-GGUF](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) | Apache 2.0 |
 | ONNX Runtime + DirectML | 人声分离 GPU 推理 | [NuGet: Microsoft.ML.OnnxRuntime.DirectML](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime.DirectML) 1.24.4 | MIT |
 | MathNet.Numerics | FFT（MDX 频谱处理） | [NuGet](https://www.nuget.org/packages/MathNet.Numerics) 4.15.0 | MIT |
 | System.Memory / Unsafe | 运行时依赖 | NuGet 4.5.5 / 4.5.3 | MIT |
