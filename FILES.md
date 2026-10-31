@@ -16,7 +16,7 @@
 | 本仓库 Release | 6 | 55.5 MB | deploy.ps1 → 本仓库 Release v1.0.0 |
 | build.ps1 | 13 | 37.3 MB | gui/build.ps1 编译 |
 | NuGet 包 | 7 | 36.2 MB | deploy.ps1 → nuget.org |
-| 仓库自带 | 31 | 744.4 KB | git clone |
+| 仓库自带 | 31 | 745.4 KB | git clone |
 | System32 | 4 | 701.0 KB | deploy.ps1 → 本机 System32 |
 | 上游包附带 | 6 | 46.4 KB | 本机 ffmpeg 包自带，BtbN 包无此文件 |
 | 本机私有 | 2 | 717 B | 你自己创建 |
@@ -200,15 +200,15 @@ SRTproject/
 
 ## 一、仓库自带（clone 即有，无需下载）
 
-共 29 个文件，713.0 KB。
+共 29 个文件，714.0 KB。
 
 | 路径 | 大小 | 来源 | 必需性 |
 |---|---:|---|---|
 | `.gitattributes` | 216 B | 仓库自带 | 仓库 |
 | `.gitignore` | 1.3 KB | 仓库自带 | 仓库 |
-| `ATTRIBUTIONS.md` | 2.6 KB | 仓库自带 | 仓库 |
+| `ATTRIBUTIONS.md` | 2.8 KB | 仓库自带 | 仓库 |
 | `config.example.txt` | 907 B | 仓库自带 | 仓库 |
-| `deploy.ps1` | 38.8 KB | 仓库自带 | 仓库 |
+| `deploy.ps1` | 39.6 KB | 仓库自带 | 仓库 |
 | `gui/_icon/gen_icons.cs` | 11.7 KB | 仓库自带 | 仓库 |
 | `gui/_icon/srt.ico` | 278.8 KB | 仓库自带 | 仓库 |
 | `gui/build.ps1` | 2.4 KB | 仓库自带 | 仓库 |

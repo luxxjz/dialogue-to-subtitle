@@ -3,10 +3,10 @@
 # 必需性: 必需/仓库/构建 = 缺了就是问题; 文档/可选/需自建/可删 = 不计入失败
 .gitattributes	216	repo	仓库
 .gitignore	1310	repo	仓库
-ATTRIBUTIONS.md	2673	repo	仓库
+ATTRIBUTIONS.md	2884	repo	仓库
 config.example.txt	907	repo	仓库
 config.txt	695	local	需自建
-deploy.ps1	39770	repo	仓库
+deploy.ps1	40581	repo	仓库
 DirectML.dll	18527776	build	构建
 FILES.md	0	doc	文档
 gui/_icon/gen_icons.cs	11999	repo	仓库

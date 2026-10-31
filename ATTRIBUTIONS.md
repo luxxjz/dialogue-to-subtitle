@@ -13,6 +13,7 @@
 | Qwen3.5-MT-2B GGUF | 内置翻译模型权重（Q4_K_M 1.9 GB，由 [kaelri/qwen3.5-mt](https://ollama.com/kaelri/qwen3.5-mt) 注册表取得，`sha256:4ecac2ba…`） | [ollama.com/kaelri/qwen3.5-mt](https://ollama.com/kaelri/qwen3.5-mt) | Apache 2.0 |
 | Qwen3.5-2B GGUF（回退） | 官方权重取不到时的通用基座 | [unsloth/Qwen3.5-2B-GGUF](https://huggingface.co/unsloth/Qwen3.5-2B-GGUF) | Apache 2.0 |
 | ONNX Runtime + DirectML | 人声分离 GPU 推理 | [NuGet: Microsoft.ML.OnnxRuntime.DirectML](https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime.DirectML) 1.24.4 | MIT |
+| DirectML 运行库 | `DirectML.dll`，GPU 推理后端（ORT 的独立依赖包，部署脚本单独取） | [NuGet: Microsoft.AI.DirectML](https://www.nuget.org/packages/Microsoft.AI.DirectML) 1.15.4 | MIT |
 | MathNet.Numerics | FFT（MDX 频谱处理） | [NuGet](https://www.nuget.org/packages/MathNet.Numerics) 4.15.0 | MIT |
 | System.Memory / Unsafe | 运行时依赖 | NuGet 4.5.5 / 4.5.3 | MIT |
 | UVR MDX-Net 模型 | 人声/伴奏分离 | [TRvlvr/model_repo](https://github.com/TRvlvr/model_repo)（经 [python-audio-separator](https://github.com/nomadkaraoke/python-audio-separator) 镜像分发） | MIT |

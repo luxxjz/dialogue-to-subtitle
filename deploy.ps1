@@ -65,6 +65,7 @@ $Script:Tmp   = Join-Path $Script:Cache 'extract'
 $VerOllama    = 'v0.35.1'
 $VerWhisper   = 'b5454'      # whisper.cpp 官方 CPU 构建所用 tag
 $VerOnnx      = '1.24.4'
+$VerDirectML  = '1.15.4'     # DirectML.dll 不在 ORT 包里, 是独立包(与 ORT 声明的依赖版本一致)
 $VerMathNet   = '4.15.0'
 $VerMemory    = '4.5.5'
 $VerUnsafe    = '4.5.3'
@@ -381,7 +382,7 @@ function Get-NuGetPackage {
 #  组件 1: 托管 DLL (NuGet 还原)
 # ==================================================================
 function Deploy-Lib {
-    Write-Step '托管 DLL (onnxruntime / MathNet / System.*)'
+    Write-Step '托管 DLL (onnxruntime + DirectML / MathNet / System.*)'
     $libDir = Join-Path $Script:Root 'tools\lib'
     if (-not (Test-Path $libDir)) { New-Item -ItemType Directory -Path $libDir -Force | Out-Null }
 
@@ -399,19 +400,26 @@ function Deploy-Lib {
 
     $jobs = @(
         @{ Id = 'Microsoft.ML.OnnxRuntime.Managed'; Ver = $VerOnnx;   Files = @('Microsoft.ML.OnnxRuntime.dll'); Prefer = @('netstandard2.0') },
-        @{ Id = 'Microsoft.ML.OnnxRuntime.DirectML'; Ver = $VerOnnx;  Files = @('onnxruntime.dll', 'DirectML.dll', 'onnxruntime_providers_shared.dll'); Prefer = @('win-x64', 'win7-x64') },
+        @{ Id = 'Microsoft.ML.OnnxRuntime.DirectML'; Ver = $VerOnnx;  Files = @('onnxruntime.dll', 'onnxruntime_providers_shared.dll'); Prefer = @('win-x64', 'win7-x64') },
+        # DirectML.dll 不在上面那个包里(它只是声明了对 Microsoft.AI.DirectML 的依赖),
+        # 必须单独取; 该包 202 MB, 只挑 x64 的那一个 DLL, 其余平台/Xbox/PDB 全部丢弃
+        @{ Id = 'Microsoft.AI.DirectML';             Ver = $VerDirectML; Files = @('DirectML.dll'); Prefer = @('x64-win'); Note = 'DirectML.dll 来自独立包 Microsoft.AI.DirectML (整包 202 MB, 只取其中 x64 的 18 MB)' },
         @{ Id = 'MathNet.Numerics';                  Ver = $VerMathNet; Files = @('MathNet.Numerics.dll'); Prefer = @('net48', 'netstandard2.0') },
         @{ Id = 'System.Memory';                     Ver = $VerMemory; Files = @('System.Memory.dll'); Prefer = @('net461') },
         @{ Id = 'System.Runtime.CompilerServices.Unsafe'; Ver = $VerUnsafe; Files = @('System.Runtime.CompilerServices.Unsafe.dll'); Prefer = @('net461') }
     )
 
     foreach ($j in $jobs) {
+        $want = Join-Path $libDir $j.Files[0]
+        if ($j.ContainsKey('Note') -and -not (Test-Path $want)) { Write-Note $j.Note }
         $pkg = Get-NuGetPackage -Id $j.Id -Version $j.Ver
         $tmp = New-TempDir $j.Id
         Expand-Zip -Zip $pkg -Dest $tmp
         foreach ($f in $j.Files) {
             if (Copy-FirstMatch -FromDir $tmp -FileName $f -ToDir $libDir -Prefer $j.Prefer) {
                 Write-Ok ('{0}  ({1})' -f $f, $j.Id)
+            } elseif ($j.ContainsKey('Note')) {
+                Write-Fail ("$($j.Id) 中未找到 $f —— $($j.Note)")
             } else {
                 Write-Fail ("$($j.Id) 中未找到 $f")
             }
