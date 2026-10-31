@@ -1,0 +1,9 @@
+* text=auto
+
+# PowerShell 脚本保持 CRLF, 避免 Windows 上的解析问题
+*.ps1 text eol=crlf
+*.cs  text eol=crlf
+
+# 源码需要 UTF-8 BOM(见 gui/build.ps1 说明), 不做换行转换
+*.txt -text
+*.ico binary

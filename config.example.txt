@@ -1,0 +1,45 @@
+# SRT GUI 配置样例 (key=value, # 开头为注释)
+# 用法: 复制为 config.txt 后按需修改; 不复制也能跑, 程序内置默认值
+# 相对路径以程序目录为基准, 也可写绝对路径
+
+# ---- LLM 后处理 ----
+LlmType=llama
+LlmUrl=http://127.0.0.1:11434
+LlmModel=
+LlmKey=
+LlmPort=39281
+LlmNgl=99
+BatchSize=40
+TimeoutSec=60
+RetryCount=4
+Mode=translate
+
+# ---- 分离 & 输出 ----
+# SepModel 留空 = 自动使用 models\UVR-MDX-NET-Inst_HQ_3.onnx
+SepModel=
+Overlap=0.25
+SaveVocals=1
+SaveInst=0
+BreakLine=1
+TradToSimp=1
+EnableSep=1
+EnableVad=1
+
+# ---- 识别 ----
+VadPreset=standard
+Parallel=2
+WhisperModel=models\ggml-medium.bin
+RecogLang=auto
+TgtLang=zh
+WhisperGpuIndex=-1
+TxtOut=0
+TxtParaGap=1.5
+
+# ---- 输出位置 ----
+# program=程序目录 / source=原片目录 / custom=自定义
+OutMode=program
+CustomOutDir=
+
+# ---- 输入记忆(程序自动写入) ----
+LastInput=
+LastDir=
