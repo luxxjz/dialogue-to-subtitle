@@ -465,9 +465,16 @@ function Deploy-Ffmpeg {
             $okAll = $false
         }
     }
-    # 附带许可文件
+    # 附带许可文件 (统一命名为 LICENSE, 与完整文件树一致)
     $lic = Get-ChildItem -Path $tmp -Recurse -File -Filter 'LICENSE*' | Select-Object -First 1
-    if ($lic) { Copy-Item $lic.FullName (Join-Path $Script:Root 'tools\ffmpeg\LICENSE.txt') -Force }
+    if ($lic) { Copy-Item $lic.FullName (Join-Path $Script:Root 'tools\ffmpeg\LICENSE') -Force }
+    # 上游若带 presets/ (gyan.dev 等完整包), 一并铺过去; BtbN 包没有, 跳过即可
+    $pre = Get-ChildItem -Path $tmp -Recurse -Directory -Filter 'presets' | Select-Object -First 1
+    if ($pre) {
+        $dstPre = Join-Path $Script:Root 'tools\ffmpeg\presets'
+        if (-not (Test-Path $dstPre)) { New-Item -ItemType Directory -Path $dstPre -Force | Out-Null }
+        Copy-Item (Join-Path $pre.FullName '*') $dstPre -Force
+    }
 
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
     if ($okAll) {
@@ -850,6 +857,14 @@ try {
 $sw.Stop()
 
 $ok = Invoke-Verify
+
+# 有清单时再做一遍逐文件核对(比上面 13 项更细, 覆盖第三方包内的全部文件)
+# 仅作参考, 不改变退出码: -SmallModel / CPU 回退等选项会让清单与实际情况自然有差异
+$treeScript = Join-Path $Script:Root 'scripts\check-tree.ps1'
+$treeManifest = Join-Path $Script:Root 'manifests\tree.txt'
+if ((Test-Path $treeScript) -and (Test-Path $treeManifest)) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $treeScript
+}
 
 Write-Host ''
 Write-Host '================================================================' -ForegroundColor Cyan

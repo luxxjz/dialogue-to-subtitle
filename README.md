@@ -97,12 +97,17 @@ SRTproject/
 ├── config.txt               ← 本地配置（自动生成，不纳入仓库）
 ├── config.example.txt       ← 配置样例
 ├── deploy.ps1               ← 一键部署脚本
+├── FILES.md                 ← 完整文件树（144 个文件，逐个标注来源）
 ├── gui/                     ← C# 源码（WinForms，单文件编译）
 │   ├── Program.cs  MainForm.cs  Pipeline.cs
 │   ├── Recognize.cs  MDXSep.cs  LlmPost.cs  LlmServer.cs
 │   ├── Config.cs  SrtUtil.cs  VkUtil.cs  ProcRunner.cs
 │   └── build.ps1            ← csc 一键编译
 ├── modelfile/               ← 内置 LLM 的 ollama 模型定义
+├── manifests/tree.txt       ← 机读版清单（路径/字节数/来源/必需性）
+├── scripts/
+│   ├── gen-tree.ps1         ← 扫描目录，重新生成 FILES.md 与 manifests/tree.txt
+│   └── check-tree.ps1       ← 按清单核对当前目录缺了什么
 ├── tools/                   ← 运行时依赖（由 deploy.ps1 还原）
 │   ├── TSCharacters.txt     ← 繁简单字映射（唯一入库的运行时数据）
 │   ├── ffmpeg/bin/  ollama/  whisper-vulkan-new/  lib/
@@ -111,6 +116,14 @@ SRTproject/
     ├── UVR-MDX-NET-Inst_HQ_3.onnx  Kim_Vocal_2.onnx
     └── ollama/               ← 内置模型 blob
 ```
+
+**不确定装全了没有？** 逐个核对每个文件（含大小、来源、是否必需）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\check-tree.ps1
+```
+
+缺失项会按「必需 / 可选」分开列出，必需项缺失时退出码为 1。清单的完整版是 [FILES.md](FILES.md)。
 
 ## 从源码构建
 

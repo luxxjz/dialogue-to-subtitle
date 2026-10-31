@@ -2,7 +2,9 @@
 # 运行时二进制与模型 —— 不进仓库, 由 deploy.ps1 自动还原
 # ============================================================
 /tools/ffmpeg/
-/tools/ollama/
+/tools/ollama/*
+# 例外: 内置模型的 jinja 模板(纯文本, 1 KB, 保留供对照)
+!/tools/ollama/qwen35mt.jinja
 /tools/whisper-vulkan/
 /tools/whisper-vulkan-new/
 /tools/lib/

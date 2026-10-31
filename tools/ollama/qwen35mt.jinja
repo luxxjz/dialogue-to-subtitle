@@ -1,0 +1,9 @@
+{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+Translate the following text. Output ONLY the translation, nothing else:
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+<think>
+
+</think>
