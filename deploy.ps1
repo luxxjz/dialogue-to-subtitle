@@ -860,10 +860,11 @@ $ok = Invoke-Verify
 
 # 有清单时再做一遍逐文件核对(比上面 13 项更细, 覆盖第三方包内的全部文件)
 # 仅作参考, 不改变退出码: -SmallModel / CPU 回退等选项会让清单与实际情况自然有差异
+# 同进程执行(不另起 powershell), 避免子进程与父进程输出编码不一致导致中文乱码
 $treeScript = Join-Path $Script:Root 'scripts\check-tree.ps1'
 $treeManifest = Join-Path $Script:Root 'manifests\tree.txt'
 if ((Test-Path $treeScript) -and (Test-Path $treeManifest)) {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $treeScript
+    & $treeScript
 }
 
 Write-Host ''

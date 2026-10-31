@@ -5,7 +5,7 @@
 param([switch]$Strict)
 
 $ErrorActionPreference = 'Stop'
-try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
+# 不改 OutputEncoding: 与 deploy.ps1 保持一致, 让中文按控制台本身的代码页输出
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root      = Split-Path -Parent $ScriptDir

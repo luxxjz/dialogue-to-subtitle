@@ -2,7 +2,7 @@
 # 用法: powershell -ExecutionPolicy Bypass -File scripts\gen-tree.ps1
 #      -WriteManifest 时同时刷新 manifests/tree.txt
 $ErrorActionPreference = 'Stop'
-try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
+# 不改 OutputEncoding: 与 deploy.ps1 一致, 按控制台自身代码页输出中文
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Root      = Split-Path -Parent $ScriptDir

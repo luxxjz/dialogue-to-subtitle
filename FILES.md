@@ -16,7 +16,7 @@
 | 本仓库 Release | 6 | 55.5 MB | deploy.ps1 → 本仓库 Release v1.0.0 |
 | build.ps1 | 13 | 37.3 MB | gui/build.ps1 编译 |
 | NuGet 包 | 7 | 36.2 MB | deploy.ps1 → nuget.org |
-| 仓库自带 | 31 | 743.6 KB | git clone |
+| 仓库自带 | 31 | 744.1 KB | git clone |
 | System32 | 4 | 701.0 KB | deploy.ps1 → 本机 System32 |
 | 上游包附带 | 6 | 46.4 KB | 本机 ffmpeg 包自带，BtbN 包无此文件 |
 | 本机私有 | 2 | 717 B | 你自己创建 |
@@ -200,7 +200,7 @@ SRTproject/
 
 ## 一、仓库自带（clone 即有，无需下载）
 
-共 29 个文件，712.2 KB。
+共 29 个文件，712.7 KB。
 
 | 路径 | 大小 | 来源 | 必需性 |
 |---|---:|---|---|
@@ -227,8 +227,8 @@ SRTproject/
 | `modelfile/qwen3.5-mt-2b.Modelfile` | 1.6 KB | 仓库自带 | 仓库 |
 | `README.md` | 7.7 KB | 仓库自带 | 仓库 |
 | `README.txt` | 17.2 KB | 仓库自带 | 仓库 |
-| `scripts/check-tree.ps1` | 4.9 KB | 仓库自带 | 仓库 |
-| `scripts/gen-tree.ps1` | 16.0 KB | 仓库自带 | 仓库 |
+| `scripts/check-tree.ps1` | 5.1 KB | 仓库自带 | 仓库 |
+| `scripts/gen-tree.ps1` | 16.4 KB | 仓库自带 | 仓库 |
 | `tools/note.txt` | 151 B | 仓库自带 | 仓库 |
 | `tools/ollama/qwen35mt.jinja` | 247 B | 仓库自带 | 可选 |
 | `tools/README.md` | 2.2 KB | 仓库自带 | 仓库 |
