@@ -310,5 +310,11 @@ foreach ($r in $deployable) {
     [void]$m.AppendLine(('{0}' -f $r.Rel) + "`t" + $sz + "`t" + $r.Src + "`t" + $r.Must)
 }
 $manPath = Join-Path $manDir 'tree.txt'
-[IO.File]::WriteAllText($manPath, $m.ToString(), $utf8)
-Write-Host ('已更新 manifests/tree.txt ({0} 条)' -f $deployable.Count)
+$newTree = $m.ToString()
+$oldTree = if (Test-Path $manPath) { [IO.File]::ReadAllText($manPath, [Text.Encoding]::UTF8) } else { '' }
+if ($newTree -ne $oldTree) {
+    [IO.File]::WriteAllText($manPath, $newTree, $utf8)
+    Write-Host ('已更新 manifests/tree.txt ({0} 条)' -f $deployable.Count)
+} else {
+    Write-Host ('manifests/tree.txt 无变化 ({0} 条)' -f $deployable.Count)
+}
