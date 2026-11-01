@@ -16,7 +16,7 @@
 | 本仓库 Release | 6 | 55.5 MB | deploy.ps1 → 本仓库 Release v1.0.0 |
 | build.ps1 | 13 | 37.3 MB | gui/build.ps1 编译 |
 | NuGet 包 | 7 | 36.2 MB | deploy.ps1 → nuget.org |
-| 仓库自带 | 31 | 756.4 KB | git clone |
+| 仓库自带 | 31 | 756.8 KB | git clone |
 | System32 | 4 | 701.0 KB | deploy.ps1 → 本机 System32 |
 | 本机私有 | 2 | 717 B | 你自己创建 |
 | 残留(可删) | 1 | 15 B | 建议删除 |
@@ -199,7 +199,7 @@ SRTproject/
 
 ## 一、仓库自带（clone 即有，无需下载）
 
-共 29 个文件，725.0 KB。
+共 29 个文件，725.4 KB。
 
 | 路径 | 大小 | 来源 | 必需性 |
 |---|---:|---|---|
@@ -224,7 +224,7 @@ SRTproject/
 | `gui/VkUtil.cs` | 4.4 KB | 仓库自带 | 仓库 |
 | `LICENSE` | 1.0 KB | 仓库自带 | 仓库 |
 | `modelfile/qwen3.5-mt-2b.Modelfile` | 1.6 KB | 仓库自带 | 仓库 |
-| `README.md` | 8.4 KB | 仓库自带 | 仓库 |
+| `README.md` | 8.8 KB | 仓库自带 | 仓库 |
 | `README.txt` | 17.2 KB | 仓库自带 | 仓库 |
 | `scripts/check-tree.ps1` | 5.1 KB | 仓库自带 | 仓库 |
 | `scripts/gen-tree.ps1` | 16.7 KB | 仓库自带 | 仓库 |
