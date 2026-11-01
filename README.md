@@ -53,6 +53,11 @@ powershell -ExecutionPolicy Bypass -File .\deploy.ps1
 脚本会依次下载并还原 ffmpeg、whisper-cli、ollama、各模型与托管 DLL，最后编译出
 `srt_gui.exe`。约 6 GB 下载量，中断后重跑会**接着下**，已就位的组件自动跳过。
 
+大文件（ffmpeg 包、whisper 模型、1.9 GB 的 GGUF）走**多线程分段下载**：切成 6 MB 一段、
+最多 24 路并发。gyan.dev 和 GitHub Release 单连接只给 10~20 KB/s，分段后实测能到 250 KB/s
+以上（70 MB 的 ffmpeg 包从约 2 小时缩到 6 分钟）。用的是系统自带 `curl.exe`（Win10 1803+
+起有），站点不支持 Range 或 curl 不可用时自动退回单连接下载。
+
 国内网络建议：
 
 ```powershell
@@ -142,7 +147,10 @@ powershell -ExecutionPolicy Bypass -File .\gui\build.ps1
 
 要点：
 
-- FFmpeg 使用 **GPL v3** 构建，再分发本程序 + FFmpeg 时需遵守 GPL 义务
+- FFmpeg 取 [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) 的 `ffmpeg-git-full`（与本项目原有
+  `tools\ffmpeg` 同源同配置，含 `presets/`），是 `.7z`：脚本用系统自带 `tar.exe`（Win10 1803+ 支持 7z）
+  或你装的 7-Zip 解开；都不可用时回退 BtbN 的 zip 构建（功能等价，少了 `presets/`）。FFmpeg 为
+  **GPL v3**，再分发本程序 + FFmpeg 时需遵守 GPL 义务
 - whisper.cpp 官方 Release **没有 Windows Vulkan 预编译包**，本仓库把自编译结果作为
   Release 附件分发；取不到时自动回退官方 CPU 构建（`tools/README.md` 有自编译步骤）
 

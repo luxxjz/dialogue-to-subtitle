@@ -5,7 +5,7 @@
 
 | 组件 | 用途 | 来源 | 许可 |
 |---|---|---|---|
-| FFmpeg | 音轨提取 / 切片 / 转码 | [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)（`win64-gpl`）<br>本地亦可换用 [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) full 构建 | GPL v3 |
+| FFmpeg | 音轨提取 / 切片 / 转码 | [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) `ffmpeg-git-full`（与本项目原有 `tools\ffmpeg` 同源）<br>解不开 7z 时回退 [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)（`win64-gpl`） | GPL v3 |
 | whisper.cpp | 语音识别（`whisper-cli.exe`） | [ggml-org/whisper.cpp](https://github.com/ggml-org/whisper.cpp) | MIT |
 | Whisper 模型 | `ggml-medium.bin` / `ggml-small.bin` | [ggerganov/whisper.cpp](https://huggingface.co/ggerganov/whisper.cpp) | MIT（OpenAI Whisper 权重） |
 | Silero VAD | 语音活动检测 `ggml-silero-v6.2.0.bin` | [ggml-org/whisper-vad](https://huggingface.co/ggml-org/whisper-vad) | MIT |

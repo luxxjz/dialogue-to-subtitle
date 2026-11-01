@@ -50,8 +50,8 @@ $Rules = @(
     @{ P = 'tools/lib/*.dll';             Src = 'nuget';   Must = '必需' }
 
     # --- 第三方运行时 ---
-    @{ P = 'tools/ffmpeg/presets/*';      Src = 'upstream'; Must = '可选' }
-    @{ P = 'tools/ffmpeg/README.txt';     Src = 'upstream'; Must = '可选' }
+    @{ P = 'tools/ffmpeg/presets/*';      Src = 'ffmpeg';  Must = '可选' }
+    @{ P = 'tools/ffmpeg/README.txt';     Src = 'ffmpeg';  Must = '可选' }
     @{ P = 'tools/ffmpeg/*';              Src = 'ffmpeg';  Must = '必需' }
     @{ P = 'tools/ollama/*';              Src = 'ollama';  Must = '必需' }
     @{ P = 'tools/whisper-vulkan-new/*';  Src = 'whisper'; Must = '必需' }
@@ -73,7 +73,7 @@ $SrcName = @{
     'doc'           = '仓库自带'
     'nuget'         = 'NuGet 包'
     'vc'            = 'System32'
-    'ffmpeg'        = 'BtbN FFmpeg'
+    'ffmpeg'        = 'FFmpeg (gyan.dev)'
     'ollama'        = 'ollama 安装包'
     'whisper'       = '本仓库 Release'
     'legacy'        = '旧版(不还原)'
@@ -211,11 +211,11 @@ foreach ($g in $bySrc) {
         '仓库自带'      { 'git clone' }
         'NuGet 包'      { 'deploy.ps1 → nuget.org' }
         'System32'      { 'deploy.ps1 → 本机 System32' }
-        'BtbN FFmpeg'   { 'deploy.ps1 → BtbN/FFmpeg-Builds' }
+        'FFmpeg (gyan.dev)' { 'deploy.ps1 → gyan.dev git full' }
         'ollama 安装包' { 'deploy.ps1 → ollama/ollama v0.35.1' }
         '本仓库 Release' { 'deploy.ps1 → 本仓库 Release v1.0.0' }
         '旧版(不还原)'  { '本项目未使用，可不还原' }
-        '上游包附带'    { '本机 ffmpeg 包自带，BtbN 包无此文件' }
+        '上游包附带'    { '解不开 7z 时回退 BtbN 包，这两项不会有' }
         '模型站点'      { 'deploy.ps1 → HuggingFace / whisper.cpp' }
         'ollama create' { 'deploy.ps1 → ollama create' }
         'build.ps1'     { 'gui/build.ps1 编译' }
@@ -275,7 +275,7 @@ foreach ($grp in $groups) {
 [void]$md.AppendLine('- **`tools/whisper-vulkan/` 与 `tools/whisper-vulkan-new/`**：程序按 -new → 旧版 顺序查找，`whisper-vulkan-new` 是当前使用的那份。旧目录保留是因为原作者同时留了，deploy.ps1 不还原它，缺了不影响运行。')
 [void]$md.AppendLine('- **`models/ggml-vad.bin`** 只有 15 字节，内容是 `Entry not found`，是早先一次失败下载的残留。代码里没有任何地方读它（VAD 用的是 `ggml-silero-v6.2.0.bin`），可以删。')
 [void]$md.AppendLine('- **根目录那 11 个 DLL**（DirectML / onnxruntime / MathNet / System.Memory / System.Runtime.CompilerServices.Unsafe / onnxruntime_providers_shared / msvcp140 / msvcp140_1 / vcruntime140 / vcruntime140_1 / Microsoft.ML.OnnxRuntime）不是下载来的，是 `gui/build.ps1` 每次编译时从 `tools/lib/` 复制到 exe 同级的。换机重编译会自动重新生成。')
-[void]$md.AppendLine('- **`tools/ffmpeg/LICENSE`** 由 deploy.ps1 从压缩包里的 `LICENSE*` 写入（统一改名）。**`presets/*.ffpreset` 和 `README.txt`** 是你本机装的 gyan.dev 完整包自带的，deploy.ps1 用的 BtbN 包不含这两项；脚本发现压缩包里有 `presets/` 才会铺过去。程序没有调用 `-pre` 预设，README 只是构建说明，缺了都不影响运行。')
+[void]$md.AppendLine('- **`tools/ffmpeg` 整体来自 gyan.dev 的 `ffmpeg-git-full` 构建**（.7z）：脚本用系统自带 `tar.exe`（Win10 1803+ 支持 7z）或你装的 7-Zip 解开，把 `bin/`、`presets/`、`README.txt`、`LICENSE` 铺到位。解不开 7z 或下载失败时自动回退 BtbN 的 zip 构建——功能等价，但 `presets/` 和 `README.txt` 不会有（清单里标为“可选”，缺了不影响运行；程序也没用到 `-pre` 预设）。')
 [void]$md.AppendLine('- **`tools/ollama/qwen35mt.jinja`** 是内置翻译模型模板的副本（内容与 `modelfile/qwen3.5-mt-2b.Modelfile` 的 TEMPLATE 块一致），ollama 构建时不读它，保留仅作参考。')
 [void]$md.AppendLine('- **`config.txt`** 含你的片源路径，不进仓库；clone 后从 `config.example.txt` 复制一份改名即可。')
 [void]$md.AppendLine('- **本表按默认安装记录**。用 `-SmallModel` 时 `models/ggml-medium.bin` 会换成 `ggml-small.bin`；whisper 回退到 CPU 构建时 `tools/whisper-vulkan-new/` 里的文件集合也可能与上表不同（少 `ggml-vulkan.dll`）。这两种情况 `check-tree.ps1` 都不会判为失败。')

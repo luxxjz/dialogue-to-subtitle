@@ -11,14 +11,13 @@
 | 模型站点 | 5 | 2.01 GB | deploy.ps1 → HuggingFace / whisper.cpp |
 | ollama create | 7 | 1.81 GB | deploy.ps1 → ollama create |
 | ollama 安装包 | 52 | 1.19 GB | deploy.ps1 → ollama/ollama v0.35.1 |
-| BtbN FFmpeg | 4 | 630.5 MB | deploy.ps1 → BtbN/FFmpeg-Builds |
+| FFmpeg (gyan.dev) | 10 | 630.5 MB | deploy.ps1 → gyan.dev git full |
 | 旧版(不还原) | 6 | 60.6 MB | 本项目未使用，可不还原 |
 | 本仓库 Release | 6 | 55.5 MB | deploy.ps1 → 本仓库 Release v1.0.0 |
 | build.ps1 | 13 | 37.3 MB | gui/build.ps1 编译 |
 | NuGet 包 | 7 | 36.2 MB | deploy.ps1 → nuget.org |
-| 仓库自带 | 31 | 745.4 KB | git clone |
+| 仓库自带 | 31 | 756.4 KB | git clone |
 | System32 | 4 | 701.0 KB | deploy.ps1 → 本机 System32 |
-| 上游包附带 | 6 | 46.4 KB | 本机 ffmpeg 包自带，BtbN 包无此文件 |
 | 本机私有 | 2 | 717 B | 你自己创建 |
 | 残留(可删) | 1 | 15 B | 建议删除 |
 | **合计** | **144** | **5.81 GB** | |
@@ -200,15 +199,15 @@ SRTproject/
 
 ## 一、仓库自带（clone 即有，无需下载）
 
-共 29 个文件，714.0 KB。
+共 29 个文件，725.0 KB。
 
 | 路径 | 大小 | 来源 | 必需性 |
 |---|---:|---|---|
 | `.gitattributes` | 216 B | 仓库自带 | 仓库 |
 | `.gitignore` | 1.3 KB | 仓库自带 | 仓库 |
-| `ATTRIBUTIONS.md` | 2.8 KB | 仓库自带 | 仓库 |
+| `ATTRIBUTIONS.md` | 2.9 KB | 仓库自带 | 仓库 |
 | `config.example.txt` | 907 B | 仓库自带 | 仓库 |
-| `deploy.ps1` | 39.6 KB | 仓库自带 | 仓库 |
+| `deploy.ps1` | 49.8 KB | 仓库自带 | 仓库 |
 | `gui/_icon/gen_icons.cs` | 11.7 KB | 仓库自带 | 仓库 |
 | `gui/_icon/srt.ico` | 278.8 KB | 仓库自带 | 仓库 |
 | `gui/build.ps1` | 2.4 KB | 仓库自带 | 仓库 |
@@ -225,10 +224,10 @@ SRTproject/
 | `gui/VkUtil.cs` | 4.4 KB | 仓库自带 | 仓库 |
 | `LICENSE` | 1.0 KB | 仓库自带 | 仓库 |
 | `modelfile/qwen3.5-mt-2b.Modelfile` | 1.6 KB | 仓库自带 | 仓库 |
-| `README.md` | 7.7 KB | 仓库自带 | 仓库 |
+| `README.md` | 8.4 KB | 仓库自带 | 仓库 |
 | `README.txt` | 17.2 KB | 仓库自带 | 仓库 |
 | `scripts/check-tree.ps1` | 5.1 KB | 仓库自带 | 仓库 |
-| `scripts/gen-tree.ps1` | 16.6 KB | 仓库自带 | 仓库 |
+| `scripts/gen-tree.ps1` | 16.7 KB | 仓库自带 | 仓库 |
 | `tools/note.txt` | 151 B | 仓库自带 | 仓库 |
 | `tools/ollama/qwen35mt.jinja` | 247 B | 仓库自带 | 可选 |
 | `tools/README.md` | 2.2 KB | 仓库自带 | 仓库 |
@@ -245,14 +244,20 @@ SRTproject/
 
 ## 三、第三方运行时（deploy.ps1 下载）
 
-共 62 个文件，1.86 GB。
+共 68 个文件，1.86 GB。
 
 | 路径 | 大小 | 来源 | 必需性 |
 |---|---:|---|---|
-| `tools/ffmpeg/bin/ffmpeg.exe` | 209.7 MB | BtbN FFmpeg | 必需 |
-| `tools/ffmpeg/bin/ffplay.exe` | 211.2 MB | BtbN FFmpeg | 必需 |
-| `tools/ffmpeg/bin/ffprobe.exe` | 209.5 MB | BtbN FFmpeg | 必需 |
-| `tools/ffmpeg/LICENSE` | 34.3 KB | BtbN FFmpeg | 必需 |
+| `tools/ffmpeg/bin/ffmpeg.exe` | 209.7 MB | FFmpeg (gyan.dev) | 必需 |
+| `tools/ffmpeg/bin/ffplay.exe` | 211.2 MB | FFmpeg (gyan.dev) | 必需 |
+| `tools/ffmpeg/bin/ffprobe.exe` | 209.5 MB | FFmpeg (gyan.dev) | 必需 |
+| `tools/ffmpeg/LICENSE` | 34.3 KB | FFmpeg (gyan.dev) | 必需 |
+| `tools/ffmpeg/presets/libvpx-1080p.ffpreset` | 227 B | FFmpeg (gyan.dev) | 可选 |
+| `tools/ffmpeg/presets/libvpx-1080p50_60.ffpreset` | 227 B | FFmpeg (gyan.dev) | 可选 |
+| `tools/ffmpeg/presets/libvpx-360p.ffpreset` | 219 B | FFmpeg (gyan.dev) | 可选 |
+| `tools/ffmpeg/presets/libvpx-720p.ffpreset` | 227 B | FFmpeg (gyan.dev) | 可选 |
+| `tools/ffmpeg/presets/libvpx-720p50_60.ffpreset` | 227 B | FFmpeg (gyan.dev) | 可选 |
+| `tools/ffmpeg/README.txt` | 45.3 KB | FFmpeg (gyan.dev) | 可选 |
 | `tools/ollama/lib/ollama/cuda_v12/concrt140.dll` | 304.4 KB | ollama 安装包 | 必需 |
 | `tools/ollama/lib/ollama/cuda_v12/cublas64_12.dll` | 108.5 MB | ollama 安装包 | 必需 |
 | `tools/ollama/lib/ollama/cuda_v12/cublasLt64_12.dll` | 660.4 MB | ollama 安装包 | 必需 |
@@ -371,18 +376,12 @@ SRTproject/
 
 ## 七、上游包附带 / 旧版本 / 本机私有（非必需）
 
-共 15 个文件，60.7 MB。
+共 9 个文件，60.6 MB。
 
 | 路径 | 大小 | 来源 | 必需性 |
 |---|---:|---|---|
 | `config.txt` | 695 B | 本机私有 | 需自建 |
 | `models/ggml-vad.bin` | 15 B | 残留(可删) | 可删 |
-| `tools/ffmpeg/presets/libvpx-1080p.ffpreset` | 227 B | 上游包附带 | 可选 |
-| `tools/ffmpeg/presets/libvpx-1080p50_60.ffpreset` | 227 B | 上游包附带 | 可选 |
-| `tools/ffmpeg/presets/libvpx-360p.ffpreset` | 219 B | 上游包附带 | 可选 |
-| `tools/ffmpeg/presets/libvpx-720p.ffpreset` | 227 B | 上游包附带 | 可选 |
-| `tools/ffmpeg/presets/libvpx-720p50_60.ffpreset` | 227 B | 上游包附带 | 可选 |
-| `tools/ffmpeg/README.txt` | 45.3 KB | 上游包附带 | 可选 |
 | `tools/whisper-vulkan/ggml.dll` | 67.0 KB | 旧版(不还原) | 可选 |
 | `tools/whisper-vulkan/ggml-base.dll` | 623.5 KB | 旧版(不还原) | 可选 |
 | `tools/whisper-vulkan/ggml-cpu.dll` | 762.5 KB | 旧版(不还原) | 可选 |
@@ -411,7 +410,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\gen-tree.ps1
 - **`tools/whisper-vulkan/` 与 `tools/whisper-vulkan-new/`**：程序按 -new → 旧版 顺序查找，`whisper-vulkan-new` 是当前使用的那份。旧目录保留是因为原作者同时留了，deploy.ps1 不还原它，缺了不影响运行。
 - **`models/ggml-vad.bin`** 只有 15 字节，内容是 `Entry not found`，是早先一次失败下载的残留。代码里没有任何地方读它（VAD 用的是 `ggml-silero-v6.2.0.bin`），可以删。
 - **根目录那 11 个 DLL**（DirectML / onnxruntime / MathNet / System.Memory / System.Runtime.CompilerServices.Unsafe / onnxruntime_providers_shared / msvcp140 / msvcp140_1 / vcruntime140 / vcruntime140_1 / Microsoft.ML.OnnxRuntime）不是下载来的，是 `gui/build.ps1` 每次编译时从 `tools/lib/` 复制到 exe 同级的。换机重编译会自动重新生成。
-- **`tools/ffmpeg/LICENSE`** 由 deploy.ps1 从压缩包里的 `LICENSE*` 写入（统一改名）。**`presets/*.ffpreset` 和 `README.txt`** 是你本机装的 gyan.dev 完整包自带的，deploy.ps1 用的 BtbN 包不含这两项；脚本发现压缩包里有 `presets/` 才会铺过去。程序没有调用 `-pre` 预设，README 只是构建说明，缺了都不影响运行。
+- **`tools/ffmpeg` 整体来自 gyan.dev 的 `ffmpeg-git-full` 构建**（.7z）：脚本用系统自带 `tar.exe`（Win10 1803+ 支持 7z）或你装的 7-Zip 解开，把 `bin/`、`presets/`、`README.txt`、`LICENSE` 铺到位。解不开 7z 或下载失败时自动回退 BtbN 的 zip 构建——功能等价，但 `presets/` 和 `README.txt` 不会有（清单里标为“可选”，缺了不影响运行；程序也没用到 `-pre` 预设）。
 - **`tools/ollama/qwen35mt.jinja`** 是内置翻译模型模板的副本（内容与 `modelfile/qwen3.5-mt-2b.Modelfile` 的 TEMPLATE 块一致），ollama 构建时不读它，保留仅作参考。
 - **`config.txt`** 含你的片源路径，不进仓库；clone 后从 `config.example.txt` 复制一份改名即可。
 - **本表按默认安装记录**。用 `-SmallModel` 时 `models/ggml-medium.bin` 会换成 `ggml-small.bin`；whisper 回退到 CPU 构建时 `tools/whisper-vulkan-new/` 里的文件集合也可能与上表不同（少 `ggml-vulkan.dll`）。这两种情况 `check-tree.ps1` 都不会判为失败。

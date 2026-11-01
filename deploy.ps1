@@ -242,6 +242,184 @@ function Test-RemoteSize {
     return $null
 }
 
+function Get-RemoteRangeInfo {
+    <#
+      问上游: 真实字节数 + 是否支持 Range。
+      拿 0-0 这一字节, 支持分段的服务器会回 206 + Content-Range: bytes 0-0/总长。
+    #>
+    param([string]$Url)
+    $size   = [long]0
+    $ranges = $false
+    try {
+        $req = [Net.HttpWebRequest]::Create($Url)
+        $req.UserAgent = 'SRTproject-deploy/1.0'
+        $req.Timeout = 20000
+        $req.AllowAutoRedirect = $true
+        $req.AddRange(0, 0)
+        $resp = $req.GetResponse()
+        $body = [long]$resp.ContentLength
+        if ($resp.StatusCode -eq [Net.HttpStatusCode]::PartialContent) {
+            $ranges = $true
+            $cr = $resp.ContentRange
+            # Content-Range: bytes 0-0/73459519 —— 不是每个站点都给, 给不出就算了
+            if ($cr -and $cr.Contains('/')) {
+                $tail = $cr.Substring($cr.LastIndexOf('/') + 1)
+                $v = [long]0
+                if ([long]::TryParse($tail, [ref]$v)) { $size = $v }
+            }
+        } else {
+            $size = $body
+        }
+        if ($resp.Headers['Accept-Ranges'] -eq 'bytes') { $ranges = $true }
+        $resp.Close()
+    } catch { }
+
+    # 有些站点(gyan.dev)回 206 但不给 Content-Range, 长度得再问一次 HEAD
+    if ($size -le 1) {
+        try {
+            $h = [Net.HttpWebRequest]::Create($Url)
+            $h.Method = 'HEAD'
+            $h.UserAgent = 'SRTproject-deploy/1.0'
+            $h.Timeout = 20000
+            $h.AllowAutoRedirect = $true
+            $hr = $h.GetResponse()
+            if ($hr.ContentLength -gt 1) { $size = [long]$hr.ContentLength }
+            $hr.Close()
+        } catch { }
+    }
+    return @{ Size = $size; Ranges = $ranges }
+}
+
+function Invoke-SegmentedDownload {
+    <#
+      多线程分段下载。
+      有些站点(gyan.dev、GitHub Release)单连接只给 10~20 KB/s, 70 MB 要下两小时;
+      切成若干段并行拉, 总吞吐能翻十倍以上。
+      条件: 系统自带 curl.exe(Win10 1803+ 起有) + 上游支持 Range + 文件够大。
+      任何环节不顺就返回 $false, 由调用方回退到单连接下载, 不抛异常。
+    #>
+    param([string]$Url, [string]$Dest, [long]$MinBytes)
+
+    $curl = Join-Path $env:SystemRoot 'System32\curl.exe'
+    if (-not (Test-Path $curl)) { return $false }
+
+    $info = Get-RemoteRangeInfo -Url $Url
+    if (-not $info.Ranges -or $info.Size -lt 16MB) { return $false }
+
+    $size  = [long]$info.Size
+    $name  = Split-Path $Dest -Leaf
+    $parts = Join-Path (Split-Path -Parent $Dest) ('.seg-' + $name)
+    if (-not (Test-Path $parts)) { New-Item -ItemType Directory -Path $parts -Force | Out-Null }
+
+    # 每段 6 MB, 同时最多 24 路:
+    # 段大小固定, 这样 1.9 GB 的 GGUF 也是 24 路在跑, 不会变成"24 个 80 MB 的大段"
+    $chunk = [long](6MB)
+    $conc  = 24
+    $n = [int][Math]::Ceiling($size / $chunk)
+    if ($n -lt 2) { $n = 2 }
+
+    # 先把分段区间算好, 上次中断前下完的段直接复用
+    $segs = @()
+    for ($i = 0; $i -lt $n; $i++) {
+        $start = [long]($i * $chunk)
+        $end   = [Math]::Min($start + $chunk - 1, $size - 1)
+        if ($start -gt $end) { break }
+        $segs += @{
+            Start = $start
+            End   = $end
+            Need  = ($end - $start + 1)
+            Path  = (Join-Path $parts ('p{0:d5}' -f $i))
+            Done  = $false
+            Try   = 0
+            Proc  = $null
+        }
+    }
+
+    $queue = New-Object Collections.Queue
+    foreach ($s in $segs) {
+        if ((Test-Path $s.Path) -and (Get-Item $s.Path).Length -eq $s.Need) { $s.Done = $true }
+        else { $queue.Enqueue($s) }
+    }
+
+    $running = @()
+    $failed  = $false
+    $maxTry  = 3
+    while ($queue.Count -gt 0 -or $running.Count -gt 0) {
+        # 补满并发
+        while ($running.Count -lt $conc -and $queue.Count -gt 0) {
+            $s = $queue.Dequeue()
+            if (Test-Path $s.Path) { Remove-Item $s.Path -Force -ErrorAction SilentlyContinue }
+            $s.Try++
+            $psi = New-Object Diagnostics.ProcessStartInfo
+            $psi.FileName        = $curl
+            # --speed-limit/--speed-time: 卡死的连接 60 秒内低于 2 KB/s 就断开重排, 不用等超时
+            $psi.Arguments       = ('-L -s --fail --retry 1 --retry-delay 2 --speed-limit 2048 --speed-time 60 -r {0}-{1} -o "{2}" "{3}"' -f
+                                    $s.Start, $s.End, $s.Path, $Url)
+            $psi.UseShellExecute = $false
+            $psi.CreateNoWindow  = $true
+            try {
+                $s.Proc = [Diagnostics.Process]::Start($psi)
+                $running += $s
+            } catch {
+                if ($s.Try -lt $maxTry) { $queue.Enqueue($s) } else { $failed = $true }
+            }
+        }
+
+        # 收回退出的进程, 短的段重排(最多 3 次)
+        $still = @()
+        foreach ($s in $running) {
+            if (-not $s.Proc.HasExited) { $still += $s; continue }
+            if ((Test-Path $s.Path) -and (Get-Item $s.Path).Length -eq $s.Need) {
+                $s.Done = $true
+            } elseif ($s.Try -lt $maxTry) {
+                $queue.Enqueue($s)
+            } else {
+                $failed = $true
+            }
+        }
+        $running = $still
+
+        $got = [long]0
+        foreach ($s in $segs) { if (Test-Path $s.Path) { $got += (Get-Item $s.Path).Length } }
+        $pct = [int](($got * 100) / $size)
+        Write-Host -NoNewline ("`r         {0,3}%  {1} / {2}   ({3} 路)" -f $pct, (Format-Size $got), (Format-Size $size), $conc)
+        Start-Sleep -Milliseconds 300
+    }
+    Write-Host ''
+
+    foreach ($s in $segs) {
+        if (-not ((Test-Path $s.Path) -and (Get-Item $s.Path).Length -eq $s.Need)) { $failed = $true }
+    }
+    if ($failed) {
+        Write-Note '分段下载不完整, 回退单连接下载'
+        return $false
+    }
+
+    # 合并
+    $out = [IO.File]::Open($Dest, [IO.FileMode]::Create, [IO.FileAccess]::Write)
+    try {
+        $buf = New-Object byte[] (4MB)
+        foreach ($s in $segs) {
+            $fs = [IO.File]::OpenRead($s.Path)
+            try {
+                while ($true) {
+                    $r = $fs.Read($buf, 0, $buf.Length)
+                    if ($r -le 0) { break }
+                    $out.Write($buf, 0, $r)
+                }
+            } finally { $fs.Close() }
+        }
+    } finally { $out.Close() }
+
+    $finalLen = (Get-Item $Dest).Length
+    if ($finalLen -ne $size -or $finalLen -lt $MinBytes) {
+        Remove-Item $Dest -Force -ErrorAction SilentlyContinue
+        return $false
+    }
+    Remove-Item $parts -Recurse -Force -ErrorAction SilentlyContinue
+    return $true
+}
+
 function Get-Download {
     param(
         [string[]]$Urls,
@@ -265,6 +443,11 @@ function Get-Download {
     $errors = @()
     foreach ($u in $Urls) {
         Write-Host "  来源: $u" -ForegroundColor DarkGray
+        # 第一轮先试多线程分段(大文件在 gyan/GitHub 上快十倍); 不适用或失败则回退单连接
+        if (Invoke-SegmentedDownload -Url $u -Dest $Dest -MinBytes $MinBytes) {
+            Write-Ok ('{0} ({1})' -f $name, (Format-Size (Get-Item $Dest).Length))
+            return $true
+        }
         for ($attempt = 1; $attempt -le 2; $attempt++) {
             try {
                 Invoke-HttpDownload -Url $u -Dest $Dest -MinBytes $MinBytes | Out-Null
@@ -449,45 +632,113 @@ function Deploy-Lib {
 # ==================================================================
 #  组件 2: FFmpeg
 # ==================================================================
+# 解 7z: 优先用装了 7-Zip 的机器, 否则用 Windows 自带的 bsdtar
+# (Win10 1803+ / Win11 的 %SystemRoot%\System32\tar.exe 官方就支持 .7z)
+function Expand-7z {
+    param([string]$Archive, [string]$Dest)
+    if (-not (Test-Path $Dest)) { New-Item -ItemType Directory -Path $Dest -Force | Out-Null }
+
+    $sevenZip = @()
+    if ($env:ProgramFiles)     { $sevenZip += (Join-Path $env:ProgramFiles '7-Zip\7z.exe') }
+    if (${env:ProgramFiles(x86)}) { $sevenZip += (Join-Path ${env:ProgramFiles(x86)} '7-Zip\7z.exe') }
+    $sevenZip = $sevenZip | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($sevenZip) {
+        # 先 l(列目录) 验完整, 坏包/拼接了旧版本的半截文件在这里就暴露
+        & $sevenZip l $Archive 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            & $sevenZip x $Archive ('-o' + $Dest) -y 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) { return $true }
+        }
+    }
+
+    $tars = @()
+    if ($env:SystemRoot) { $tars += (Join-Path $env:SystemRoot 'System32\tar.exe') }
+    $tars += 'tar'
+    foreach ($t in $tars) {
+        try {
+            & $t -tf $Archive 2>$null | Out-Null
+            if ($LASTEXITCODE -ne 0) { continue }
+            & $t -xf $Archive -C $Dest 2>$null | Out-Null
+            if ($LASTEXITCODE -eq 0) { return $true }
+        } catch { }
+    }
+    return $false
+}
+
+# 把解开的 ffmpeg 包铺到 tools\ffmpeg (bin/ presets/ README.txt LICENSE)
+function Install-FfmpegTree {
+    param([string]$FromDir)
+    $ffDir  = Join-Path $Script:Root 'tools\ffmpeg'
+    $binDir = Join-Path $ffDir 'bin'
+    $okExe  = $true
+    foreach ($exe in @('ffmpeg.exe', 'ffprobe.exe', 'ffplay.exe')) {
+        if (Copy-FirstMatch -FromDir $FromDir -FileName $exe -ToDir $binDir -Prefer @('bin')) {
+            Write-Ok $exe
+        } else {
+            Write-Fail "压缩包中未找到 $exe"
+            $okExe = $false
+        }
+    }
+    # 许可证: gyan 叫 LICENSE, BtbN 叫 LICENSE.txt, 统一落成 LICENSE
+    $lic = Get-ChildItem -Path $FromDir -Recurse -File -Filter 'LICENSE*' | Select-Object -First 1
+    if ($lic) { Copy-Item $lic.FullName (Join-Path $ffDir 'LICENSE') -Force }
+    # README.txt (gyan 包自带, 记录构建配置)
+    $rd = Get-ChildItem -Path $FromDir -Recurse -File -Filter 'README.txt' | Select-Object -First 1
+    if ($rd) { Copy-Item $rd.FullName (Join-Path $ffDir 'README.txt') -Force }
+    # presets/ (libvpx 预设, gyan 完整包自带; BtbN 包没有)
+    $pre = Get-ChildItem -Path $FromDir -Recurse -Directory -Filter 'presets' | Select-Object -First 1
+    if ($pre) {
+        $dstPre = Join-Path $ffDir 'presets'
+        if (-not (Test-Path $dstPre)) { New-Item -ItemType Directory -Path $dstPre -Force | Out-Null }
+        Copy-Item (Join-Path $pre.FullName '*') $dstPre -Force
+    }
+    return $okExe
+}
+
 function Deploy-Ffmpeg {
     Write-Step 'FFmpeg (音轨提取 / 切片 / 转码)'
     $binDir = Join-Path $Script:Root 'tools\ffmpeg\bin'
-    $probe  = Join-Path $binDir 'ffprobe.exe'
-    if (-not $Force -and (Test-Path $probe) -and (Test-Path (Join-Path $binDir 'ffmpeg.exe'))) {
+    if (-not $Force -and (Test-Path (Join-Path $binDir 'ffmpeg.exe')) -and (Test-Path (Join-Path $binDir 'ffprobe.exe'))) {
         Write-Skip 'tools\ffmpeg\bin 已就位'
         return
     }
 
-    $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
-    $zip = Join-Path $Script:Cache 'ffmpeg-win64-gpl.zip'
-    Get-Download -Urls @($url) -Dest $zip -MinBytes 40000000 -Desc 'BtbN GPL 构建 (约 150 MB)' | Out-Null
-
-    $tmp = New-TempDir 'ffmpeg'
-    Expand-Zip -Zip $zip -Dest $tmp
-    $okAll = $true
-    foreach ($exe in @('ffmpeg.exe', 'ffprobe.exe', 'ffplay.exe')) {
-        if (Copy-FirstMatch -FromDir $tmp -FileName $exe -ToDir $binDir -Prefer @('bin')) {
-            Write-Ok $exe
+    # 首选 gyan.dev 的 git full 构建: 与本项目原有的 tools\ffmpeg 同源同配置,
+    # 解出来带 bin/ presets/ README.txt LICENSE, 还原后与原包文件集合一致。
+    # 它是 .7z: 装了 7-Zip 或系统 bsdtar(Win10 1803+) 都能解开。
+    # 解不开/下不动时回退 BtbN 的 zip 构建: 功能等价(GPL 全功能), 但没有 presets/ 与 README。
+    $okAll = $false
+    $seven = Join-Path $Script:Cache 'ffmpeg-git-full.7z'
+    try {
+        Get-Download -Urls @('https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-full.7z') `
+                     -Dest $seven -MinBytes 30000000 -Desc 'gyan.dev git full 构建 (7z, 约 70 MB)' | Out-Null
+        $tmp = New-TempDir 'ffmpeg7z'
+        if (Expand-7z -Archive $seven -Dest $tmp) {
+            $okAll = Install-FfmpegTree -FromDir $tmp
         } else {
-            Write-Fail "压缩包中未找到 $exe"
-            $okAll = $false
+            Write-Note '这台机器的 tar/7-Zip 解不开 7z 包(旧版 Win10 常见), 改用 BtbN 的 zip 构建'
         }
-    }
-    # 附带许可文件 (统一命名为 LICENSE, 与完整文件树一致)
-    $lic = Get-ChildItem -Path $tmp -Recurse -File -Filter 'LICENSE*' | Select-Object -First 1
-    if ($lic) { Copy-Item $lic.FullName (Join-Path $Script:Root 'tools\ffmpeg\LICENSE') -Force }
-    # 上游若带 presets/ (gyan.dev 等完整包), 一并铺过去; BtbN 包没有, 跳过即可
-    $pre = Get-ChildItem -Path $tmp -Recurse -Directory -Filter 'presets' | Select-Object -First 1
-    if ($pre) {
-        $dstPre = Join-Path $Script:Root 'tools\ffmpeg\presets'
-        if (-not (Test-Path $dstPre)) { New-Item -ItemType Directory -Path $dstPre -Force | Out-Null }
-        Copy-Item (Join-Path $pre.FullName '*') $dstPre -Force
+        Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    } catch {
+        Write-Note ('gyan.dev 取包失败({0}), 改用 BtbN 的 zip 构建' -f $_.Exception.Message)
     }
 
-    Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    if (-not $okAll) {
+        $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
+        $zip = Join-Path $Script:Cache 'ffmpeg-win64-gpl.zip'
+        Get-Download -Urls @($url) -Dest $zip -MinBytes 40000000 -Desc 'BtbN GPL 构建 (约 150 MB)' | Out-Null
+        $tmp2 = New-TempDir 'ffmpeg'
+        Expand-Zip -Zip $zip -Dest $tmp2
+        $okAll = Install-FfmpegTree -FromDir $tmp2
+        Remove-Item $tmp2 -Recurse -Force -ErrorAction SilentlyContinue
+        if ($okAll) { Remove-Item $zip -Force -ErrorAction SilentlyContinue }
+    }
+
     if ($okAll) {
-        Remove-Item $zip -Force -ErrorAction SilentlyContinue
-        Write-Note '注意: FFmpeg 为 GPL v3, 再分发本项目+FFmpeg 时需遵守其许可'
+        Remove-Item $seven -Force -ErrorAction SilentlyContinue
+        Write-Note 'FFmpeg 为 GPL v3, 再分发本项目 + FFmpeg 时需遵守其许可'
+    } else {
+        Write-Fail 'FFmpeg 未就位, 音频提取/切片会失败'
     }
 }
 
